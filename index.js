@@ -31,6 +31,7 @@ let coordsNeukauf =  [[49.977376, 7.081916],
                       [49.978286, 7.108306],
                       [49.957351, 7.105065],
                       [49.951377, 7.122239]]
+//change
 
 var CheckPoint = mongoose.model("CheckPoint", {lat:Number, lon:Number, spot:Number})
 var Route = mongoose.model("Route", {name:String, checkpoints:[]})
