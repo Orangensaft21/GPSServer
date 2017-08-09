@@ -4,11 +4,21 @@ var fs = require('fs')
 var {user,pwd} = require('./config.json')
 var mongoose = require('mongoose')
 var d3 = require('d3')
+const path = require('path');
 
-//let conn = `mongodb://${user}:${pwd}@79.143.181.113:27017/hermdb`
-//mongoose.connect(conn)
-//var db = mongoose.connection
-//db.on('error', console.error.bind(console, 'connection error:'))
+
+
+
+/*
+  Mainclass, hier sollten noch einige Funktionen ausgelagert werden
+  TODO:
+   - COORDS in Datenbank/Extradatei
+*/
+
+let conn = `mongodb://${user}:${pwd}@localhost:27017/gpsapp`
+mongoose.connect(conn)
+var db = mongoose.connection
+db.on('error', console.error.bind(console, 'connection error:'))
 
 let coordsRobSchum = [[ 49.977376, 7.081916],
               [ 49.977498, 7.082554],
@@ -33,9 +43,10 @@ let coordsNeukauf =  [[49.977376, 7.081916],
                       [49.951377, 7.122239]]
 //change
 
-var CheckPoint = mongoose.model("CheckPoint", {lat:Number, lon:Number, spot:Number})
-var Route = mongoose.model("Route", {name:String, checkpoints:[]})
+var CheckPoint = mongoose.model("CheckPoint", {lat:Number, lon:Number, spot:Number, time:Number})
+var Route = mongoose.model("Route", {name: {type: String, unique:true, required:true}, checkpoints:[]})
 var Position = mongoose.model("Position", {id: String, lat:Number, lon: Number, time: Number}) // time in milliseconds
+
 
 function createRoute(rname,coords,callback){
   let route = new Route({name:rname, checkpoints:[]})
@@ -44,31 +55,37 @@ function createRoute(rname,coords,callback){
     route.checkpoints.push(checkPoint)
   })
   //console.log(route);
+  //route.save()
+  console.log(route);
   callback(route);
 }
+function saveRouteFromJSON(routeData){
+  let route = new Route(routeData)
+  console.log("new route")
+  console.log(route)
 
-
-function emitRank(Laptime,routeName,callback){
-  //TODO Feste URL ändern
-  let PATH = `file:///home/stefan/AndroidStudioProjects/gpsappserver/${routeName}-Rekorde.csv`
-
-  d3.csv(PATH, function(data){
-    let rank=1
-    data.forEach((x) => {
-      if (x["Laptime"].replace(":","")-Laptime.replace(":","")<0){
-        rank+=1
-      }
-    })
-
-    console.log(rank)
-    callback(rank)
-  });
-
+  route.save()
 }
 
+function loadRoute(rname,callback){
+  Route.findOne({name:rname},(err,route)=>{
+    if (err) return console.log("route nicht geladen")
+    console.log(route);
+    callback(route);
+  })
+}
 
-
-
+function emitRank(lapTime,routeName,callback){
+  d3.csv('file://'+path.join(__dirname,`${routeName}-Rekorde.csv`), function(data){
+    let rank=1
+    for (x of data){
+      if (x["Laptime"]-lapTime<0){
+        rank+=1
+      }
+    }
+    callback(rank)
+  });
+}
 
 io.on('connection', (socket) => {
 
@@ -84,9 +101,12 @@ io.on('connection', (socket) => {
     //msg wird route beinhalten
     switch (msg) {
       case "RobSchumRoute":
-        createRoute("Robert-Schuman-Route",coordsRobSchum,(createdRoute) =>{
+        loadRoute("Robert-Schuman-Route",(createdRoute)=>{
           socket.emit('route',createdRoute);
         })
+        /*createRoute("Robert-Schuman-Route",coordsRobSchum,(createdRoute) =>{
+          socket.emit('route',createdRoute);
+        })*/
         break;
       case "NormaRoute":
         createRoute("Norma Route",coordsNorma,(createdRoute) =>{
@@ -108,13 +128,11 @@ io.on('connection', (socket) => {
 
   socket.on('finish', (msg) => {
     row=`${msg.times}`
-    console.log(row)
     fs.appendFile(`${msg.routeName}-Rekorde.csv`,
       row+'\n',()=>{})
-    let LapTime= row.substr(row.length - 5)
+    row = row.split(",")
+    let LapTime = row[row.length-1];
     //schicke an server 2 die Lapdaten
-    serverIo.emit("row",row)
-    LapTime= row.substr(row.length - 8)
 
     emitRank(LapTime,msg.routeName,(erg)=>{
       console.log(erg)
@@ -122,11 +140,20 @@ io.on('connection', (socket) => {
         io.emit("zieldurchsage","New World Record")
       }
       socket.emit("zieldurchsage","You finished with Rank "+erg)
-      socket.broadcast.emit("zieldurchsage", row.substr(0,row.indexOf(","))+ " finished with Rank "+erg)
+      socket.broadcast.emit("zieldurchsage", row[0]+ " finished with Rank "+erg)
     })
   });
 
+  socket.on('route', (route) =>{
+    console.log(route)
+    saveRouteFromJSON(route)
+  })
 
+  socket.on('getRouteNames',()=>{
+
+    let r = Route.find({},{_id:0,name:1})
+    console.log(r)
+  })
 
   console.log('client connected')
   socket.on('disconnect', ()=>{
