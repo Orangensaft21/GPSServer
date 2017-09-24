@@ -1,0 +1,80 @@
+//works perfect
+Route.aggregate([
+  {$match:{name:routeName}},
+  {$project:{lapdata:{$min:"$lapdata.lapTime"}}}
+],(err,fastestLap)=>{
+  //lapdata wird noch nicht gesaved!
+  //console.log(fastestLap)
+  fastestLapTime=fastestLap[0].lapdata
+  LapData.findOne({lapTime:fastestLapTime},(err,res)=>{
+    console.log('projection approach')
+    console.log(res)
+  })
+})
+//faster? easier!
+Route.aggregate([
+
+  {$match:{name:routeName}},
+  {$unwind:"$lapdata"},
+  {$sort:{"lapdata.lapTime":1}},
+  {$limit:1},
+  {$project:{_id:0,lapdata:1}}
+
+],(err,fastestLap)=>{
+  console.log('sort approach')
+  console.log(fastestLap[0].lapdata)
+})
+//
+
+
+//ACHTUNG, findOne liefert was anderes zurück als find!!!
+/*Route.findOne({name:routeName},{"lapdata.lapTime":1})
+      .exec((err,erg)=>{
+        console.log(JSON.stringify(erg, null, 2))
+      })*/
+
+return
+//old functionality
+Route.findOne({name:routeName},{times:1})
+        .exec(function(err,route){
+          if (err) throw console.error("scheisse");
+          console.log(Math.min.apply(null, route.times))
+        })
+//herm version
+Route.aggregate([
+  {$match:{name:routeName}},
+  {$unwind:"$lapdata"},
+  {$group:{_id: "1", data_avg:{$avg:"$lapdata.lapTime"}}}
+  //{$project:{lapdata:{$min:"$lapdata.lapTime"}}} // dont unwind, use $min in projectstage!
+],(err,result)=>{
+  console.log(result)
+})
+//lenz version
+Route.aggregate([
+      {
+        $match: {
+            name: {$eq: routeName}
+        }
+      },
+      {
+        $unwind:"$times"
+      },
+      {
+          $group: {
+              _id: "$_id",  //mongo db result always needs an _id
+              data_min: {$min: "$times"}
+          }
+      },
+      {
+          $group: {
+              _id: 1,  //mongo db result always needs an _id
+              min: {$min: "$data_min"}
+          }
+      },
+  ], function (err, result) {
+      if (err) {
+          next(err);
+      } else {
+          console.log(result[0].min);
+      }
+  });

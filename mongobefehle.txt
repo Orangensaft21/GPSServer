@@ -1,0 +1,3 @@
+//lapdata zurücksetzen
+db.routes.findOneAndUpdate({name:"Robert-Schuman-Route"},{$set:{lapdata:[]}})
+

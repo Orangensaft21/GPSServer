@@ -41,12 +41,17 @@ let coordsNeukauf =  [[49.977376, 7.081916],
                       [49.978286, 7.108306],
                       [49.957351, 7.105065],
                       [49.951377, 7.122239]]
+
+let coordsKinheimWolf = [[49.977376, 7.081916],
+                         [49.973386, 7.068648],
+                         [49.970373, 7.054338],
+                         [49.981314, 7.102976],
+                         [49.983609, 7.095602]]
 //change
 
-var CheckPoint = mongoose.model("CheckPoint", {lat:Number, lon:Number, spot:Number, time:Number})
-var Route = mongoose.model("Route", {name: {type: String, unique:true, required:true}, checkpoints:[]})
-var Position = mongoose.model("Position", {id: String, lat:Number, lon: Number, time: Number}) // time in milliseconds
-
+var CheckPoint = require('./models/checkPointModel')
+var Route = require('./models/routeModel')
+var Position = require('./models/positionModel')
 
 function createRoute(rname,coords,callback){
   let route = new Route({name:rname, checkpoints:[]})
@@ -56,7 +61,7 @@ function createRoute(rname,coords,callback){
   })
   //console.log(route);
   //route.save()
-  console.log(route);
+  console.log('ROUTE' + rname + 'CREATED!!!!');
   callback(route);
 }
 function saveRouteFromJSON(routeData){
@@ -67,11 +72,20 @@ function saveRouteFromJSON(routeData){
   route.save()
 }
 
+/*createRoute("Kinheim-Wolf-Rune",coordsKinheimWolf,(ro)=>{
+  saveRouteFromJSON(ro);
+});*/
+
 function loadRoute(rname,callback){
   Route.findOne({name:rname},(err,route)=>{
     if (err) return console.log("route nicht geladen")
     console.log(route);
-    callback(route);
+    Route.getFastest(rname,(cb)=>{
+      console.log(cb.checkTimes.toString())
+      Route.times=cb.checkTimes
+      callback(route);
+    })
+
   })
 }
 
@@ -87,6 +101,45 @@ function emitRank(lapTime,routeName,callback){
   });
 }
 
+//für unit test
+for (i=1;i<1;i++){
+
+  let times = [15,199989,35,993,1354979,1578008]
+  times = times.map((t)=>Math.round(Math.random()*t))
+  finish(  { times: 'mock,'+times.join(),
+      routeName: 'Robert-Schuman-Route',
+      name: 'mock3' } )
+}
+/*setInterval(function () {
+  let times = [10000,20000,30000,40000,50000,10000]
+  times = times.map((t)=>Math.round(Math.random()*t))
+  finish(  { times: 'mock,'+times.join(),
+      routeName: 'Robert-Schuman-Route',
+      name: 'eprStefan' } )
+}, 50)*/
+
+function finish(msg){
+  //console.log(msg)
+  row=`${msg.times}`
+  fs.appendFile(`${msg.routeName}-Rekorde.csv`,
+    row+'\n',()=>{})
+  row = row.split(",")
+  let LapTime = row[row.length-1];
+  //schicke an server 2 die Lapdaten
+  Route.addTime(msg.routeName, msg.name,row)
+  //console.log(row)
+
+
+  /*emitRank(LapTime,msg.routeName,(erg)=>{
+    console.log(erg)
+    if (erg === 1){
+      io.emit("zieldurchsage","New World Record")
+    }
+    socket.emit("zieldurchsage","You finished with Rank "+erg)
+    socket.broadcast.emit("zieldurchsage", row[0]+ " finished with Rank "+erg)
+  })*/
+}
+
 io.on('connection', (socket) => {
 
 
@@ -97,51 +150,24 @@ io.on('connection', (socket) => {
     */
   })
 
-  socket.on('reqcheck', (msg) => {
-    //msg wird route beinhalten
-    switch (msg) {
-      case "RobSchumRoute":
-        loadRoute("Robert-Schuman-Route",(createdRoute)=>{
-          socket.emit('route',createdRoute);
-        })
-        /*createRoute("Robert-Schuman-Route",coordsRobSchum,(createdRoute) =>{
-          socket.emit('route',createdRoute);
-        })*/
-        break;
-      case "NormaRoute":
-        createRoute("Norma Route",coordsNorma,(createdRoute) =>{
-          socket.emit('route',createdRoute);
-        })
-        break;
-      case "Sportplatz":
-        createRoute("Sportplatz Lap",coordsSportplatz,(createdRoute) =>{
-          socket.emit('route',createdRoute);
-        })
-        break;
-      case "Neukauf":
-        createRoute("Neukauf Hin",coordsNeukauf,(createdRoute) =>{
-          socket.emit('route',createdRoute);
-        })
-        break;
-    }
+  socket.on('requestcheckpoints', (msg) => {
+    //msg wird route als String beinhalten
+    console.log(msg + 'requested')
+    Route.loadRoute(msg,(createdRoute)=>{
+      socket.emit('route',createdRoute)
+    })
+    Route.getFastestLap(msg,(err,stats)=>{
+      if (err)
+        socket.emit('statistics',"999999,999999,9999999,999999,999999,99999,999999,999999")
+      else {
+        socket.emit('statistics',stats)
+      }
+    })
+
   })
 
   socket.on('finish', (msg) => {
-    row=`${msg.times}`
-    fs.appendFile(`${msg.routeName}-Rekorde.csv`,
-      row+'\n',()=>{})
-    row = row.split(",")
-    let LapTime = row[row.length-1];
-    //schicke an server 2 die Lapdaten
-
-    emitRank(LapTime,msg.routeName,(erg)=>{
-      console.log(erg)
-      if (erg === 1){
-        io.emit("zieldurchsage","New World Record")
-      }
-      socket.emit("zieldurchsage","You finished with Rank "+erg)
-      socket.broadcast.emit("zieldurchsage", row[0]+ " finished with Rank "+erg)
-    })
+    finish(msg);
   });
 
   socket.on('route', (route) =>{
@@ -150,9 +176,19 @@ io.on('connection', (socket) => {
   })
 
   socket.on('getRouteNames',()=>{
+    //Route.find({},{_id:0,name:1})
+    let r = Route.find({},{_id:0,name:1},(err,names)=>{
 
-    let r = Route.find({},{_id:0,name:1})
-    console.log(r)
+      // Supergeile Methode ©Hermes
+      /*s = names.reduce(function(accumulator,entry){
+        return accumulator+entry.name+","
+      },"").slice(0,-1)*/
+
+      //easykacke, toString macht das mit dem javascript object was ich immer haben wollte :(
+      test= names.map(entry => entry.name).join()
+      console.log(test)
+      socket.emit("routeNames", test);
+    })
   })
 
   console.log('client connected')
