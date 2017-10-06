@@ -80,12 +80,17 @@ function loadRoute(rname,callback){
   Route.findOne({name:rname},(err,route)=>{
     if (err) return console.log("route nicht geladen")
     console.log(route);
+<<<<<<< HEAD
     Route.getFastest(rname,(cb)=>{
       console.log(cb.checkTimes.toString())
       Route.times=cb.checkTimes
       callback(route);
     })
 
+=======
+    route.times = {}
+    callback(route);
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
   })
 }
 
@@ -102,6 +107,7 @@ function emitRank(lapTime,routeName,callback){
 }
 
 //für unit test
+<<<<<<< HEAD
 for (i=1;i<1;i++){
 
   let times = [15,199989,35,993,1354979,1578008]
@@ -120,15 +126,31 @@ for (i=1;i<1;i++){
 
 function finish(msg){
   //console.log(msg)
+=======
+let times = [10000,20000,30000,40000,50000,10000]
+times = times.map((t)=>Math.round(Math.random()*t))
+finish(  { times: 'mock,'+times.join(),
+    routeName: 'Robert-Schuman-Route',
+    name: 'Stefan' } )
+
+function finish(msg){
+  console.log(msg)
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
   row=`${msg.times}`
   fs.appendFile(`${msg.routeName}-Rekorde.csv`,
     row+'\n',()=>{})
   row = row.split(",")
   let LapTime = row[row.length-1];
   //schicke an server 2 die Lapdaten
+<<<<<<< HEAD
   Route.addTime(msg.routeName, msg.name,row)
   //console.log(row)
 
+=======
+  Route.addTime(msg.routeName, parseInt(LapTime))
+  console.log(row)
+  console.log(Route.getFastest(msg.routeName))
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
 
   /*emitRank(LapTime,msg.routeName,(erg)=>{
     console.log(erg)
@@ -151,11 +173,16 @@ io.on('connection', (socket) => {
   })
 
   socket.on('requestcheckpoints', (msg) => {
+<<<<<<< HEAD
     //msg wird route als String beinhalten
+=======
+    //msg wird route beinhalten
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
     console.log(msg + 'requested')
     Route.loadRoute(msg,(createdRoute)=>{
       socket.emit('route',createdRoute)
     })
+<<<<<<< HEAD
     Route.getFastestLap(msg,(err,stats)=>{
       if (err)
         socket.emit('statistics',"999999,999999,9999999,999999,999999,99999,999999,999999")
@@ -163,6 +190,8 @@ io.on('connection', (socket) => {
         socket.emit('statistics',stats)
       }
     })
+=======
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
 
   })
 

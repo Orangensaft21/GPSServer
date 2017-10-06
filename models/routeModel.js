@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 let mongoose = require('mongoose')
 let LapData = require('./lapDataModel')
+=======
+let mongoose = require('mongoose');
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
 
 const RouteSchema = mongoose.Schema({
   name: {
@@ -8,13 +12,18 @@ const RouteSchema = mongoose.Schema({
     unique:true
   },
   checkpoints: [],
+<<<<<<< HEAD
   times: [],
   lapdata: []
+=======
+  times: []
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
 })
 
 const Route = module.exports = mongoose.model("Route",RouteSchema);
 
 module.exports.loadRoute = function(rname, callback){
+<<<<<<< HEAD
   Route.findOne({name:rname},(err,route)=>{
     if (err) return console.log("route nicht geladen")
     console.log(route)
@@ -28,6 +37,12 @@ module.exports.getFastestLap=function(rname,callback){
       return;
     }
     callback(null,cb.checkTimes.toString());
+=======
+  Route.findOne({name:rname},(err,result)=>{
+    if (err) return console.log("route nicht geladen")
+    console.log(result)
+    callback(result);
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
   })
 }
 //export Route without laptime data
@@ -35,6 +50,7 @@ module.exports.exportRoute = function(route, callback){
   route.times = []
 }
 
+<<<<<<< HEAD
 module.exports.addTime = function(routeName,nickName,time){
 
   time=time.slice(1,time.length-1)
@@ -118,3 +134,63 @@ module.exports.getFastestXLaps = function(routeName,callback){
 
 
 }
+=======
+module.exports.addTime = function(routeName,time){
+
+  Route.findOneAndUpdate({name:routeName},{$push:{times:time}},(err)=>{
+    if (err)
+      console.log("kann zeiten nicht eintragen")
+  })
+
+
+}
+
+module.exports.getFastest = function(routeName){
+  Route.findOne({name:routeName})
+  Route.aggregate([
+        {
+          $match: {
+              name: {$eq: routeName}
+          }
+        },
+        {
+          $unwind:"$times"
+        },
+        {
+            $group: {
+                _id: "$_id",  //mongo db result always needs an _id
+                data_min: {$min: "$times"}
+            }
+        },
+        {
+            $group: {
+                _id: 1,  //mongo db result always needs an _id
+                min: {$min: "$data_min"}
+            }
+        },
+    ], function (err, result) {
+        if (err) {
+            next(err);
+        } else {
+            console.log(result[0].min);
+        }
+    });
+}
+
+/*
+Route.aggregate([
+      {
+          $group: {
+              _id: 2,  //mongo db result always needs an _id
+              min: {$min: "$name"}
+          }
+      }
+  ], function (err, result) {
+      if (err) {
+          next(err);
+      } else {
+          console.log(result);
+      }
+  });
+*/
+>>>>>>> 032f12742a116e436deaadaa237295369b9776f2
