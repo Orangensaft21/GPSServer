@@ -7,40 +7,39 @@ const RouteSchema = mongoose.Schema({
     required:true,
     unique:true
   },
-  checkpoints: []
+  checkpoints: [],
+  times: []
 })
 
 const Route = module.exports = mongoose.model("Route",RouteSchema);
 
 module.exports.loadRoute = function(rname, callback){
+  console.log("loadRoute")
   Route.findOne({name:rname},(err,route)=>{
     if (err) return console.log("route nicht geladen")
     console.log(route)
     callback(route)
   })
 }
+
 module.exports.getFastestLap=function(rname,callback){
-  Route.getFastestXLaps(rname,(err,cb)=>{
+  console.log("getFastestLap")
+  Route.getFastestCheckTimes(rname,0,(err,cb)=>{
     if (err) {
       callback(new Error("keine bestzeit gefunden"))
       return;
     }
-    callback(null,cb.checkTimes.toString());
-  })
-  Route.findOne({name:rname},(err,result)=>{
-    if (err) return console.log("route nicht geladen")
-    console.log(result)
-    callback(result);
+    else{
+      callback(null,cb.checkTimes.toString());
+    }
   })
 }
-//export Route without laptime data
-module.exports.exportRoute = function(route, callback){
-  route.times = []
-}
+
 
 module.exports.addTime = function(routeName,nickName,time){
-
+  console.log("addTime")
   time=time.slice(1,time.length-1)
+
   console.log(time[0])
 
   let lapEintrag = new LapData({
@@ -61,33 +60,33 @@ module.exports.addTime = function(routeName,nickName,time){
     //route.save()
 }
 
-module.exports.getFastestXLaps = function(routeName,callback){
-  selectedCheck=0                 //0=laptime, 1=check1 usw.
+module.exports.getFastestCheckTimes = function(routeName,checkpointSpot,callback){
+                                            //checkSpot 0=laptime, 1=check1 usw.
   //check if lapentry exists
   //geht vielleicht besser im aggregate
-  LapData.findOne({"routeName":routeName},(err,obj)=>{
-    if (err || !obj){
-      callback (new Error("kacke"))
-      console.log("error: " + err + ", obj: " + obj);
-      return;
-    }
+
 
     LapData.aggregate([
       {$match:{"routeName":routeName}},
       {$project:{"name":"$nickName",
                  "checkTimes":"$checkTimes",
-                 "suchCheckValue":{$arrayElemAt:["$checkTimes",selectedCheck]}}
+                 "suchCheckValue":{$arrayElemAt:["$checkTimes",checkpointSpot]}}
       },
       {$sort:{"suchCheckValue":1}},
-      {$limit:2},
+      {$limit:1},
     ],(err, erg)=>{
-      if (err) return
-      console.log(erg)
-      callback(null,erg[0])
+      if (erg.length==0){
+        console.log("Bestzeiten nicht gefunden.")
+        callback(new Error("Route nicht gefunden"))
+      }
+      else{
+        callback(null,erg[0])
+      }
+
     })
 
-  })
 
+}
 
   /*LapData.aggregate([
     {$match:{"routeName":routeName}},
@@ -119,18 +118,6 @@ module.exports.getFastestXLaps = function(routeName,callback){
   })*/
 
 
-
-
-}
-module.exports.addTime = function(routeName,time){
-
-  Route.findOneAndUpdate({name:routeName},{$push:{times:time}},(err)=>{
-    if (err)
-      console.log("kann zeiten nicht eintragen")
-  })
-
-
-}
 
 
 /*

@@ -7,8 +7,6 @@ var d3 = require('d3')
 const path = require('path');
 
 
-
-
 /*
   Mainclass, hier sollten noch einige Funktionen ausgelagert werden
   TODO:
@@ -72,25 +70,10 @@ function saveRouteFromJSON(routeData){
   route.save()
 }
 
-/*createRoute("Kinheim-Wolf-Rune",coordsKinheimWolf,(ro)=>{
-  saveRouteFromJSON(ro);
-});*/
-
-function loadRoute(rname,callback){
-  Route.findOne({name:rname},(err,route)=>{
-    if (err) return console.log("route nicht geladen")
-    console.log(route);
-    Route.getFastestLap(rname,(cb)=>{
-      console.log(cb.checkTimes.toString())
-      Route.times=cb.checkTimes
-      callback(route);
-    })
-
-    route.times = {}
-    callback(route);
-  })
-}
-
+/*createRoute("Robert-Schuman-Route",coordsRobSchum,(ro)=>{
+  //saveRouteFromJSON(ro);
+});
+*/
 function emitRank(lapTime,routeName,callback){
   d3.csv('file://'+path.join(__dirname,`${routeName}-Rekorde.csv`), function(data){
     let rank=1
@@ -120,13 +103,6 @@ for (i=1;i<1;i++){
       name: 'eprStefan' } )
 }, 50)*/
 
-  //console.log(msg)
-let times = [10000,20000,30000,40000,50000,10000]
-times = times.map((t)=>Math.round(Math.random()*t))
-finish(  { times: 'mock,'+times.join(),
-    routeName: 'Robert-Schuman-Route',
-    name: 'Stefan' } )
-
 function finish(msg){
   console.log(msg)
   row=`${msg.times}`
@@ -135,11 +111,8 @@ function finish(msg){
   row = row.split(",")
   let LapTime = row[row.length-1];
   //schicke an server 2 die Lapdaten
-  Route.addTime(msg.routeName, msg.name,row)
-  //console.log(row)
+  Route.addTime(msg.routeName, msg.name, row)
 
-
-  Route.addTime(msg.routeName, parseInt(LapTime))
   console.log(row)
 
   /*emitRank(LapTime,msg.routeName,(erg)=>{
@@ -168,14 +141,18 @@ io.on('connection', (socket) => {
 
     //msg wird route beinhalten
 
-    console.log(msg + 'requested')
+    console.log(msg + ' requested')
     Route.loadRoute(msg,(createdRoute)=>{
       socket.emit('route',createdRoute)
     })
     Route.getFastestLap(msg,(err,stats)=>{
-      if (err)
-        socket.emit('statistics',"999999,999999,9999999,999999,999999,99999,999999,999999")
+      if (err){
+        console.log("errrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
+        socket.emit('statistics',"NOTIMES")
+      }
+
       else {
+        console.log("fastest lap\n"+stats)
         socket.emit('statistics',stats)
       }
     })
